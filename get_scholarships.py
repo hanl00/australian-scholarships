@@ -60,6 +60,48 @@ def collect_scholarship_links(str_link):
                 break
 
 
+# multiprocessing structure
+def multi_pool(func, input_name_list, procs):
+    templist = []
+    # counter = len(input_name_list)
+    pool = multiprocessing.Pool(processes=procs)
+    # print('Total number of processes: ' + str(procs))
+    for a in pool.imap(func, input_name_list):
+        templist.append(a)
+        # print('Number of links left: ' + str(counter - len(templist)))
+    pool.terminate()
+    pool.join()
+    return templist
 
 
-collect_scholarship_links("https://studiesinaustralia.com/scholarships-in-australia/search?key_words=&support_type=&field_of_study=&location=")
+# retrieving all relevant information from the institution's profile page
+def collect_scholarship_data(str_scholarship_link):
+    complete_scholarship_details = {}
+    page = requests.get(str_scholarship_link)
+    soup = BeautifulSoup(page.content, 'lxml')
+
+    # obtaining the name and funder
+    complete_scholarship_details['Scholarship Name'] = soup.find('div', class_='header').h1.get_text()
+    complete_scholarship_details['Scholarship Sponsor'] = soup.find('div', class_='header').h2.get_text()
+    complete_scholarship_details['Description'] = soup.find('div', class_='col-md-9 description').get_text().lstrip().rstrip()
+
+    for rows in soup.find('table', class_='table table-glance table-striped-blue table-scholarship').find_all('tr'):
+        if rows.find('th') != None:
+            requirement_header = rows.find('th').get_text()
+            text = rows.find('td').get_text().split(",")
+            final_list = []
+            for items in text:
+                items = items.lstrip().rstrip()
+                final_list.append(items)
+            requirement_description = ', '.join(list(filter(None, final_list)))
+            complete_scholarship_details[requirement_header] = requirement_description
+
+    print(complete_scholarship_details)
+
+
+
+
+
+# collect_scholarship_links("https://studiesinaustralia.com/scholarships-in-australia/search?key_words=&support_type=&field_of_study=&location=")
+
+collect_scholarship_data("https://studiesinaustralia.com/scholarships-in-australia/12709/royal-aeronautical-society/aerospace-speakers-travel-grant")

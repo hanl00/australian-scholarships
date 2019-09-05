@@ -4,6 +4,7 @@ import os
 import re
 import time
 import timeit
+import pandas as pd
 
 # install xlrd
 import requests
@@ -46,7 +47,7 @@ def collect_scholarship_links(str_link):
             for a in soup.find_all('div', class_='row row-search-result'):
                 for x in a.find_all('div', class_='col-md-12'):
                     b = x.find('a')
-                    institution_link =  b['href']
+                    institution_link = b['href']
                     total_link_info[0] = institution_link
                     print(total_link_info)
                     writer2.writerow(total_link_info)
@@ -77,11 +78,15 @@ def multi_pool(func, input_name_list, procs):
 # retrieving all relevant information from the institution's profile page
 def collect_scholarship_data(str_scholarship_link):
     complete_scholarship_details = {}
-    page = requests.get(str_scholarship_link)
+    page = requests.get(str_scholarship_link[0])
     soup = BeautifulSoup(page.content, 'lxml')
 
     # obtaining the name and funder
-    complete_scholarship_details['Scholarship Name'] = soup.find('div', class_='header').h1.get_text()
+    try:
+        complete_scholarship_details['Scholarship Name'] = soup.find('div', class_='header').h1.get_text()
+    except:
+        pass
+
     complete_scholarship_details['Scholarship Sponsor'] = soup.find('div', class_='header').h2.get_text()
     complete_scholarship_details['Description'] = soup.find('div', class_='col-md-9 description').get_text().lstrip().rstrip()
 
@@ -96,12 +101,46 @@ def collect_scholarship_data(str_scholarship_link):
             requirement_description = ', '.join(list(filter(None, final_list)))
             complete_scholarship_details[requirement_header] = requirement_description
 
-    print(complete_scholarship_details)
+
+    #print(complete_scholarship_details)
+
+    try:
+        x = soup.find('table', class_='table table-glance table-striped-blue table-scholarship').find('a')
+        complete_scholarship_details['Scholarship website'] = x['href']
+    except:
+        pass
+
+    print("Done with " + str(str_scholarship_link[0]) + " ", complete_scholarship_details)
+    return complete_scholarship_details
+
+    # print(str_scholarship_link[0] + " has " + str(len(complete_scholarship_details.keys())) + ' keys.' + str(complete_scholarship_details.keys()))
 
 
+if __name__ == '__main__':
 
+    print("start")
+   # collect_scholarship_links("https://www.goodschools.com.au/compare-schools/search?state=NSW")
+   # print("begin collecting institution data")
 
+    rawdata = pd.read_csv(uniqueLinkList_path)
+    scholarship_links = rawdata.values.tolist()
+
+    # 'Scholarship Name', 'Scholarship Sponsor', 'Description', 'Eligibility:', 'Application closing date:', 'Support Type:', 'Level of Study:', 'Gender:', 'Frequency of Offer:', 'Fields of Study:', 'Location of Study:', 'No Offered Per Year:', 'Target Group:', 'Subjects:', 'Scholarship website'])
+    columns = ['Scholarship Name', 'Scholarship Sponsor', 'Description', 'Eligibility:', 'Application closing date:',
+               'Support Type:', 'Level of Study:', 'Gender:', 'Frequency of Offer:', 'Fields of Study:',
+               'Location of Study:', 'No Offered Per Year:', 'Target Group:', 'Subjects:', 'Scholarship website']
+
+    all_data = multi_pool(collect_scholarship_data, scholarship_links, 5)
+    print("done all")
+    print(all_data)
+
+    print("Writing to csv file now")
+    with open('scholarship_data.csv', 'wt', newline='') as f:
+        w = csv.writer(f)
+        w.writerow(columns)
+        for items in all_data:
+            w.writerow([items.get(col, None) for col in columns])
 
 # collect_scholarship_links("https://studiesinaustralia.com/scholarships-in-australia/search?key_words=&support_type=&field_of_study=&location=")
 
-collect_scholarship_data("https://studiesinaustralia.com/scholarships-in-australia/12709/royal-aeronautical-society/aerospace-speakers-travel-grant")
+#collect_scholarship_data("https://studiesinaustralia.com/scholarships-in-australia/9350/american-association-of-university-women/aauw-educational-foundation-international-fellowship")
